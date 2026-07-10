@@ -1,0 +1,44 @@
+{
+  "expo": {
+    "name": "Townsquare",
+    "slug": "townsquare",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./townsquare_icon.png",
+    "userInterfaceStyle": "dark",
+    "ios": {
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSCameraUsageDescription": "Townsquare uses the camera only to scan the QR code shown on the outgoing Moderator's phone when the Moderator role is handed to you.",
+        "ITSAppUsesNonExemptEncryption": false
+      },
+      "bundleIdentifier": "org.deetech.townsquare"
+    },
+    "android": {
+      "package": "org.deetech.townsquare",
+      "adaptiveIcon": {
+        "backgroundColor": "#0B0F19",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-secure-store"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "a7a9ee1a-b17f-4d47-ac95-85f27d92a453"
+      }
+    },
+    "splash": {
+      "image": "./assets/brand-mark.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0B0F19"
+    }
+  }
+}
