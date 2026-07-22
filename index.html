@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no, maximum-scale=1.0" />
+  <title>Townsquare</title>
+  <meta name="description" content="Offline, serverless social-deduction party game. QR + gestures, no login, no tracking." />
+
+  <!-- Hardening: the app is fully self-contained, so lock everything to same-origin.
+       (No external scripts, styles, images, or network calls anywhere.) -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self'; connect-src 'self'; worker-src 'self'; manifest-src 'self'; media-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'" />
+  <meta name="referrer" content="no-referrer" />
+
+  <!-- Favicon (browser tab) -->
+  <link rel="icon" type="image/png" href="icons/icon-192.png" />
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.webmanifest" />
+  <meta name="theme-color" content="#0B0F19" />
+  <!-- iOS PWA (Safari ignores parts of the manifest) -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Townsquare" />
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+
+  <style>
+    :root {
+      --bg: #0B0F19; --card: #161F30; --border: rgba(255,255,255,0.08);
+      --gold: #FFD700; --outlaw: #FF4B5C; --town: #00E676; --detective: #2979FF; --doctor: #1DE9B6;
+      --text: #FFFFFF; --dim: rgba(255,255,255,0.6);
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; overscroll-behavior: none; }
+    #app { max-width: 560px; margin: 0 auto; padding: max(20px, env(safe-area-inset-top)) 20px max(20px, env(safe-area-inset-bottom)); }
+    h1 { color: var(--gold); font-size: 30px; text-align: center; margin: 6px 0; letter-spacing: 1px; }
+    h2 { color: var(--text); font-size: 22px; text-align: center; margin: 6px 0 16px; }
+    .dim { color: var(--dim); text-align: center; line-height: 1.45; }
+    .step { color: var(--gold); font-size: 13px; margin: 16px 0 6px; line-height: 1.4; }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 20px; margin-bottom: 16px; }
+    .card.center { text-align: center; }
+    .badge { color: var(--gold); font-size: 14px; font-weight: 700; text-align: center; }
+    input[type=text] { width: 100%; background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+      color: var(--text); padding: 14px; font-size: 16px; margin-bottom: 12px; }
+    button { font-family: inherit; font-size: 16px; cursor: pointer; }
+    .btn { display: block; width: 100%; border-radius: 10px; padding: 15px; text-align: center; font-weight: 700;
+      margin-top: 12px; border: 1px solid var(--border); background: var(--card); color: var(--text); }
+    .btn.gold { background: var(--gold); color: var(--bg); border: none; }
+    .btn.gold[disabled] { opacity: 0.35; }
+    .btn.danger { background: transparent; color: var(--outlaw); border: 1px solid var(--outlaw); }
+    .btn.win { border-width: 3px; }
+    .link { display: block; width: 100%; background: none; border: none; color: var(--dim);
+      text-decoration: underline; margin-top: 18px; text-align: center; font-size: 13px; }
+    .link.leave { color: var(--outlaw); }
+    .qrwrap { background: #fff; border-radius: 8px; padding: 12px; display: inline-block; margin: 4px auto 10px; }
+    .qrwrap canvas { display: block; }
+    .rosterline { display: flex; justify-content: space-between; align-items: center; padding: 5px 0; color: var(--text); font-size: 14px; }
+    .rosterline .rm { color: var(--outlaw); font-size: 12px; text-decoration: underline; }
+    .dead { color: var(--outlaw); text-decoration: line-through; }
+    .picker button { display: block; width: 100%; background: var(--bg); border: 1px solid var(--border);
+      border-radius: 10px; padding: 12px; margin-bottom: 8px; color: var(--text); }
+    .pickerbox { background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 10px; padding: 12px; margin-bottom: 14px; }
+    .pickerbox .lbl { font-weight: 700; font-size: 14px; margin-bottom: 8px; }
+    .tally { font-weight: 700; padding: 2px 0; }
+    .role { font-size: 36px; font-weight: 800; margin: 8px 0; }
+    .reveal-hint { color: var(--dim); font-size: 13px; text-align: center; padding: 8px; border: 1px solid var(--border); border-radius: 8px; margin-top: 8px; }
+    .win-banner { font-size: 22px; font-weight: 800; text-align: center; letter-spacing: 1px; margin: 4px 0 10px; }
+    .hero { font-size: 44px; text-align: center; margin: 8px 0; }
+    .brandimg { display: block; margin: 8px auto; width: 88px; height: 88px; border-radius: 20px; }
+    .brandimg.sm { width: 52px; height: 52px; border-radius: 12px; }
+    .devpay { text-align: center; margin-top: 4px; }
+    .devslot { position: fixed; left: 8px; top: 8px; z-index: 40; background: var(--card); border: 1px solid var(--gold);
+      color: var(--gold); font-size: 11px; padding: 3px 8px; border-radius: 8px; }
+    /* Scanner overlay */
+    #scanner { position: fixed; inset: 0; background: var(--bg); z-index: 50; display: none; flex-direction: column;
+      padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom)); }
+    #scanner.on { display: flex; }
+    #scanner .title { text-align: center; margin-bottom: 12px; }
+    #scanvideo { width: 100%; flex: 1; object-fit: cover; border-radius: 16px; background: #000; min-height: 240px; }
+    #scanner .paste { margin-top: 12px; }
+    /* Night / dead full screens */
+    .fullscreen { min-height: 80vh; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+    .fullscreen.black { background: #000; margin: -20px; border-radius: 0; }
+    /* Toast */
+    #toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--card);
+      border: 1px solid var(--gold); color: var(--text); padding: 12px 18px; border-radius: 12px; max-width: 90%;
+      z-index: 60; display: none; text-align: center; line-height: 1.4; box-shadow: 0 6px 24px rgba(0,0,0,0.5); }
+    .help-fab { position: fixed; right: 16px; bottom: max(16px, env(safe-area-inset-bottom)); width: 44px; height: 44px;
+      border-radius: 22px; background: var(--card); border: 1px solid var(--gold); color: var(--gold); font-size: 20px; z-index: 40; }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+
+  <div id="scanner">
+    <div class="title dim" id="scan-title">Scan QR</div>
+    <video id="scanvideo" playsinline muted autoplay></video>
+    <div class="paste">
+      <input type="text" id="scan-paste" placeholder="…or paste payload text here" autocapitalize="none" autocorrect="off" />
+      <button class="btn gold" data-action="scanPaste">Use pasted payload</button>
+      <button class="link" data-action="scanCancel">Cancel</button>
+    </div>
+  </div>
+
+  <button class="help-fab" data-action="help" title="How to play">?</button>
+  <div id="toast"></div>
+
+  <!-- Third-party single-file libs (vendored locally, see vendor/README.md) -->
+  <script src="vendor/qrcode.js"></script>
+  <script src="vendor/jsQR.js"></script>
+  <!-- App -->
+  <script type="module" src="ui.js"></script>
+</body>
+</html>

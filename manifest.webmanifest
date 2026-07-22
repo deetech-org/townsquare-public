@@ -1,0 +1,15 @@
+{
+  "name": "Townsquare",
+  "short_name": "Townsquare",
+  "description": "Offline, serverless social-deduction party game. QR codes and gestures — no login, no tracking.",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0B0F19",
+  "theme_color": "#0B0F19",
+  "icons": [
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

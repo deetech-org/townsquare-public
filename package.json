@@ -1,0 +1,11 @@
+{
+  "name": "townsquare-web",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Self-contained offline PWA build of Townsquare. No build step, no node_modules — static files that run in any modern mobile browser. Shares the v3.2 QR wire format with the native app.",
+  "scripts": {
+    "test": "node tests/interop.test.mjs",
+    "serve": "python -m http.server 8000"
+  }
+}
