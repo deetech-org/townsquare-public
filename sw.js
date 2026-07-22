@@ -1,6 +1,6 @@
 // Townsquare Web service worker — offline app shell with safe versioned updates.
 // Bump CACHE on every deploy so clients pick up new code instead of a stale build.
-const CACHE = 'townsquare-v2';
+const CACHE = 'townsquare-v3';
 const SHELL = [
   '.', 'index.html', 'core.js', 'ui.js', 'manifest.webmanifest',
   'vendor/qrcode.js', 'vendor/jsQR.js',
