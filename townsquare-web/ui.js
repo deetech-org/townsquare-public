@@ -238,7 +238,7 @@ function renderPlayer(s) {
   if (phase === 'NIGHT' && !isDead) {
     app.innerHTML = `
       <div class="fullscreen black">
-        <div class="hero" style="opacity:.3">🌙</div>
+        <img class="brandimg" src="icons/icon-192.png" alt="Townsquare" style="opacity:.25;filter:grayscale(1)" />
         <h2 style="color:#8A99AD">Night Has Fallen</h2>
         <p class="dim">Close your eyes and listen to the Moderator.</p>
       </div>`;
@@ -250,7 +250,8 @@ function renderPlayer(s) {
   let body = `<h2>Round ${s.roundNumber}</h2>`;
 
   if (isDead) {
-    body += `<div class="card center"><div class="hero">⚰️</div>
+    body += `<div class="card center">
+      <img class="brandimg sm" src="icons/icon-192.png" alt="Townsquare" style="filter:grayscale(1);opacity:.5;margin-bottom:12px" />
       <div class="role" style="color:var(--outlaw);font-size:20px">You are ${self.status}</div>
       <p class="dim">You can no longer vote, act, or speak. Please remain silent.</p></div>`;
   } else {
@@ -260,7 +261,7 @@ function renderPlayer(s) {
       ${revealed
         ? `<div class="dim">You are</div><div class="role" style="color:${roleColor}">${self.role}</div>
            ${self.role === 'OUTLAW' && s.companions && s.companions.length ? `<div class="dim">Fellow outlaws: ${esc(s.companions.join(', '))}</div>` : ''}`
-        : `<div class="hero">🎴</div><div class="reveal-hint">Hold to reveal your role — release to hide</div>`}
+        : `<img class="brandimg" src="icons/icon-192.png" alt="Townsquare" style="margin-bottom:12px" /><div class="reveal-hint">Hold to reveal your role — release to hide</div>`}
     </div>`;
   }
 
