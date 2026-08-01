@@ -67,6 +67,7 @@
     .hero { font-size: 44px; text-align: center; margin: 8px 0; }
     .brandimg { display: block; margin: 8px auto; width: 88px; height: 88px; border-radius: 20px; }
     .brandimg.sm { width: 52px; height: 52px; border-radius: 12px; }
+    .brandimg-hero { display: block; margin: 16px auto; width: 264px; height: 264px; border-radius: 40px; }
     .devpay { text-align: center; margin-top: 4px; }
     .devslot { position: fixed; left: 8px; top: 8px; z-index: 40; background: var(--card); border: 1px solid var(--gold);
       color: var(--gold); font-size: 11px; padding: 3px 8px; border-radius: 8px; }
@@ -86,6 +87,18 @@
       z-index: 60; display: none; text-align: center; line-height: 1.4; box-shadow: 0 6px 24px rgba(0,0,0,0.5); }
     .help-fab { position: fixed; right: 16px; bottom: max(16px, env(safe-area-inset-bottom)); width: 44px; height: 44px;
       border-radius: 22px; background: var(--card); border: 1px solid var(--gold); color: var(--gold); font-size: 20px; z-index: 40; }
+    .sayings-fab { position: fixed; left: 16px; bottom: max(16px, env(safe-area-inset-bottom)); width: 44px; height: 44px;
+      border-radius: 22px; background: var(--card); border: 1px solid var(--gold); color: var(--gold); font-size: 20px; z-index: 40; }
+    /* Active state: the overlay is open, so tapping again returns to the game. */
+    .help-fab.active, .sayings-fab.active { background: var(--gold); color: var(--bg); }
+    /* Tamil Moral Wisdom screen */
+    .saying-group { margin-top: 18px; }
+    .saying-head { color: var(--gold); font-weight: 700; font-size: 15px; margin-bottom: 8px; }
+    .saying { padding: 12px 0; border-bottom: 1px solid var(--border); }
+    .saying-src { color: var(--gold); font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; opacity: 0.8; }
+    .saying-ta { color: var(--text); font-size: 24px; line-height: 1.4; margin: 4px 0 2px; }
+    .saying-tr { color: var(--dim); font-style: italic; font-size: 13px; }
+    .saying-en { color: var(--text); font-size: 15px; margin-top: 2px; }
   </style>
 </head>
 <body>
@@ -101,6 +114,7 @@
     </div>
   </div>
 
+  <button class="sayings-fab" data-action="sayings" title="Tamil sayings">ழ்</button>
   <button class="help-fab" data-action="help" title="How to play">?</button>
   <div id="toast"></div>
 

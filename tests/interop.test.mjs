@@ -6,7 +6,7 @@
 // native phone share the same keystream and can play in the same room.
 
 import assert from 'node:assert/strict';
-import { QRCodec } from '../core.js';
+import { QRCodec, MIN_ROLE_HOLDERS, outlawCountFor, NarrationEngine, appReducer } from '../core.js';
 
 let pass = 0, fail = 0;
 async function check(name, fn) {
@@ -63,6 +63,64 @@ await check('wire encode/decode round-trips (handoff)', async () => {
   assert.equal(p.kind, 'handoff');
   assert.deepEqual(p.roster.map(r => r.name), ['Mod', 'Alice']);
   assert.equal(p.rotationTally.Mod.moderator, 1);
+});
+
+// Phase 1 Enhancement Verification: Player Threshold (MIN_ROLE_HOLDERS = 3)
+await check('MIN_ROLE_HOLDERS = 3 & 3-player role allocation (1 outlaw)', async () => {
+  assert.equal(MIN_ROLE_HOLDERS, 3);
+  assert.equal(outlawCountFor(3), 1);
+  assert.equal(outlawCountFor(4), 1);
+  assert.equal(outlawCountFor(5), 1);
+  assert.equal(outlawCountFor(6), 1);
+  assert.equal(outlawCountFor(7), 2);
+});
+
+// Phase 1 Enhancement Verification: 50-Saying Tamil Narration Database
+await check('NarrationEngine has 50 sayings across 6 categories', async () => {
+  const categories = ['LOBBY_WELCOME', 'DAY_START_PEACE', 'DAY_START_LOSS', 'NOMINATION_TENSION', 'EXECUTION_RESOLVED', 'GAME_OVER'];
+  for (const cat of categories) {
+    const saying = NarrationEngine.pickSaying(cat);
+    assert.ok(saying);
+    assert.ok(saying.tamil);
+    assert.ok(NarrationEngine.poetFor(saying));
+  }
+});
+
+// Phase 1 Enhancement Verification: PLAYER_STATUS_RESTORED
+await check('appReducer PLAYER_STATUS_RESTORED revives eliminated player to ACTIVE', async () => {
+  const initialState = {
+    alert: null,
+    session: {
+      deviceMode: 'MODERATOR',
+      phase: 'DAY_VOTE',
+      lastElimination: 'Alice',
+      roster: [
+        { name: 'Mod', role: 'UNASSIGNED', status: 'ACTIVE', isModerator: true },
+        { name: 'Alice', role: 'TOWN', status: 'ELIMINATED', isModerator: false },
+        { name: 'Bob', role: 'OUTLAW', status: 'ACTIVE', isModerator: false },
+      ]
+    }
+  };
+  const nextState = appReducer(initialState, { type: 'PLAYER_STATUS_RESTORED', name: 'Alice' });
+  const restoredAlice = nextState.session.roster.find(p => p.name === 'Alice');
+  assert.equal(restoredAlice.status, 'ACTIVE');
+  assert.equal(nextState.session.lastElimination, undefined);
+});
+
+// The mid-game latejoiner feature was removed (deadlock-prone; latecomers join the next
+// game). MIDGAME_PLAYER_ADDED / LATE_JOIN_SCANNED no longer exist — the reducer ignores them.
+
+// "Tamil Moral Wisdom" screen data: all 50 sayings reachable via allByCategory().
+await check('NarrationEngine.allByCategory() exposes all 50 sayings across 6 groups', async () => {
+  const db = NarrationEngine.allByCategory();
+  const cats = ['LOBBY_WELCOME', 'DAY_START_PEACE', 'DAY_START_LOSS', 'NOMINATION_TENSION', 'EXECUTION_RESOLVED', 'GAME_OVER'];
+  let total = 0;
+  for (const c of cats) {
+    assert.ok(Array.isArray(db[c]) && db[c].length > 0);
+    for (const sy of db[c]) { assert.ok(sy.tamil && sy.transliteration && sy.translation); assert.ok(NarrationEngine.poetFor(sy)); }
+    total += db[c].length;
+  }
+  assert.equal(total, 50);
 });
 
 console.log(`\n${fail === 0 ? 'ALL PASS' : 'SOME FAILED'} — ${pass} passed, ${fail} failed`);
