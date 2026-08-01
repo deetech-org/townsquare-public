@@ -1,7 +1,7 @@
 // Townsquare Web — UI controller. State → DOM, buttons → reducer, camera loop, QR render.
 import {
   appReducer, QRCodec, scanRolesPayload, NarrationEngine,
-  effectiveMinRoleHolders, pickNextModerator, setDev, DEV,
+  MIN_ROLE_HOLDERS, pickNextModerator, setDev, DEV,
 } from './core.js';
 
 // ---- URL params ------------------------------------------------------------
@@ -23,9 +23,11 @@ try {
 // ---- Transient UI-only state ----------------------------------------------
 const ui = {
   ballotTarget: null,
-  revealRole: false, peekBallot: false, revealRoster: false, showHandoff: false, showHelp: false,
+  revealRole: false, peekBallot: false, revealRoster: false, showHandoff: false, showHelp: false, showSayings: false,
   scanHandler: null, rolesCache: null,
 };
+// Memo slots for random picks so they stay stable across re-renders (see narrationCard / suggested Moderator).
+let _suggestPick = { key: null, name: '' };
 
 const $ = (sel) => document.querySelector(sel);
 const app = $('#app');
@@ -186,7 +188,10 @@ function render() {
   const s = state.session;
   document.title = 'Townsquare' + (SLOT ? ' [' + SLOT + ']' : '') + (s?.self?.name ? ' · ' + s.self.name : '');
   renderSlotBadge(s);
+  $('.help-fab')?.classList.toggle('active', ui.showHelp);
+  $('.sayings-fab')?.classList.toggle('active', ui.showSayings);
   if (ui.showHelp) { app.innerHTML = helpScreen(); return; }
+  if (ui.showSayings) { app.innerHTML = sayingsScreen(); return; }
   if (!s) { app.innerHTML = setupScreen(); focusName(); return; }
   if (!s.sessionId) { app.innerHTML = homeScreen(s); return; }
   if (s.deviceMode === 'MODERATOR') { renderModerator(s); return; }
@@ -195,7 +200,7 @@ function render() {
 // ---- Setup / Home ----------------------------------------------------------
 function setupScreen() {
   return `
-    <img class="brandimg" src="icons/icon-192.png" alt="Townsquare" />
+    <img class="brandimg-hero" src="icons/icon-192.png" alt="Townsquare" />
     <h1>Townsquare</h1>
     <p class="dim">Enter your name — it stays on this device and is only shared with your game's Moderator.</p>
     <div style="margin-top:20px">
@@ -318,8 +323,8 @@ function renderModerator(s) {
       <div class="card"><div class="step">Roster (${roleHolders.length} joined):</div>
         ${roleHolders.map(p => `<div class="rosterline"><span>✓ ${esc(p.name)}</span><button class="rm" data-action="remove" data-name="${esc(p.name)}">remove</button></div>`).join('') || '<div class="dim">No players yet</div>'}
       </div>
-      <button class="btn gold" data-action="startRound" ${roleHolders.length < effectiveMinRoleHolders() ? 'disabled' : ''}>Start Round</button>
-      ${roleHolders.length < 6 && roleHolders.length >= 3 ? `<p class="dim">DEV: starting with ${roleHolders.length} players (release min is 6).</p>` : ''}
+      <button class="btn gold" data-action="startRound" ${roleHolders.length < MIN_ROLE_HOLDERS ? 'disabled' : ''}>Start Round</button>
+      ${roleHolders.length < 6 && roleHolders.length >= 3 ? `<div class="reveal-hint" style="margin-top:8px;">💡 Recommended: 7+ total people (1 Mod + 6 Players) for optimal balance.</div>` : ''}
       <button class="btn danger" data-action="cancelGame">Cancel — someone else is the Moderator</button>`;
     app.innerHTML = body;
     $('#qr-join').appendChild(qrBlock(joinWire, 160));
@@ -416,7 +421,12 @@ function renderModerator(s) {
 
   if (phase === 'ROUND_OVER') {
     const activeNames = (roster || []).filter(p => p.status === 'ACTIVE').map(p => p.name);
-    const suggested = activeNames.some(n => n !== s.self.name) ? pickNextModerator(activeNames, s.rotationTally, s.self.name) : '';
+    // Memoize the fair-random suggestion per round+roster so ties don't re-roll each render.
+    const suggKey = s.roundNumber + '|' + activeNames.join(',');
+    if (_suggestPick.key !== suggKey) {
+      _suggestPick = { key: suggKey, name: activeNames.some(n => n !== s.self.name) ? pickNextModerator(activeNames, s.rotationTally, s.self.name) : '' };
+    }
+    const suggested = _suggestPick.name;
     body += narrationCard('GAME_OVER');
     if (suggested) body += `<p class="dim">Suggested next Moderator: ${esc(suggested)}</p>`;
     body += `<div class="card"><div class="step">Next round's roster (remove anyone who left):</div>
@@ -435,13 +445,22 @@ function renderModerator(s) {
 
 function rosterStatus(s) {
   if (!s.roster) return '';
-  const rows = s.roster.map(p =>
-    `<div class="rosterline ${p.status !== 'ACTIVE' ? 'dead' : ''}"><span>${esc(p.name)}${ui.revealRoster && !p.isModerator ? ' — ' + p.role : ''} [${p.status}]</span></div>`).join('');
+  const rows = s.roster.map(p => {
+    const canRestore = (p.status === 'DECEASED' || p.status === 'ELIMINATED');
+    const restoreBtn = canRestore ? `<button class="rm" style="background:var(--gold);color:#000;padding:2px 8px;border-radius:4px;" data-action="restore" data-name="${esc(p.name)}">Restore / Undo</button>` : '';
+    return `<div class="rosterline ${p.status !== 'ACTIVE' ? 'dead' : ''}"><span>${esc(p.name)}${ui.revealRoster && !p.isModerator ? ' — ' + p.role : ''} [${p.status}]</span>${restoreBtn}</div>`;
+  }).join('');
   return `<div class="card"><div class="step">Players Status:</div>${rows}
     <div class="reveal-hint" data-hold="roster">${ui.revealRoster ? 'Roles visible — release to hide' : 'Hold to reveal roles (peek privately)'}</div></div>`;
 }
+// Cache the drawn saying per category so it stays stable across re-renders (mirrors the
+// native useMemo([category])) — otherwise the card would re-randomize on every render.
+let _narrationPick = { category: null, saying: null };
 function narrationCard(category, victim) {
-  const saying = NarrationEngine.pickSaying(category);
+  if (_narrationPick.category !== category) {
+    _narrationPick = { category, saying: NarrationEngine.pickSaying(category) };
+  }
+  const saying = _narrationPick.saying;
   if (!saying) return '';
   const script = NarrationEngine.scriptFor(category, victim);
   return `<div class="card" style="border-color:var(--gold)">
@@ -503,19 +522,65 @@ function wireHold() {
 // ---- Help ------------------------------------------------------------------
 function helpScreen() {
   return `<h2>How to Play</h2>
-    <p class="dim">Townsquare needs no internet — the game travels between phones as QR codes and spoken cues.</p>
-    <div class="card"><div class="step">Objective</div>
-      <p>Outlaws win when they equal or outnumber the Townspeople. Townspeople win by voting out every Outlaw.</p></div>
-    <div class="card"><div class="step">Flow</div>
-      <p>1. Moderator shows the Join QR; each player scans it and shows their joinAck QR back.<br>
-      2. Moderator shows one Roles QR — hold your blank card to peek your role.<br>
-      3. Silent night: eyes closed, Moderator calls each role and logs targets.<br>
-      4. Morning: scan the Sync QR to update who's alive; the day's one scan also unlocks voting.<br>
-      5. Discuss, then show your secret ballot QR to the Moderator.<br>
-      6. Round over: the Moderator hands off to the next person and everyone scans a fresh Roles QR.</p></div>
-    <div class="card"><div class="step">If a scan won't work</div>
-      <p>Turn the displaying phone's brightness up, hold phones 15–30 cm apart, avoid glare. No camera? Paste the payload text in any scanner screen.</p></div>
+    <p class="dim">Townsquare is a local, serverless social deduction party game. All state passes screen-to-screen via QR codes. 100% offline with zero network connectivity.</p>
+
+    <div class="card"><div class="step">Objective & Room Size</div>
+      <p>Outlaws win when they equal or outnumber the Townspeople. Townspeople win by voting out every Outlaw.<br><br>
+      <strong>Room Size:</strong> Designed for 4–17 total people in the same room (1 Moderator + 3 to 16 Players). Recommended: 7+ people for optimal balance. The Moderator role rotates to a new player every round.</p></div>
+
+    <div class="card"><div class="step">1. Join the Lobby</div>
+      <p>The Moderator taps "Create Game Night" and shows the Join QR. Players scan it and show their joinAck QR back to register into the lobby.</p></div>
+
+    <div class="card"><div class="step">2. Get Your Role</div>
+      <p>The Moderator taps "Start Round" and displays one Roles QR. Every player scans it. Hold your blank card to peek your role privately. Outlaws see their companions' names.</p></div>
+
+    <div class="card"><div class="step">3. The Silent Night</div>
+      <p>Everyone closes their eyes. The Moderator calls out roles in turn (Outlaws, Doctor, Detective). Called players open their eyes and point silently to their target.</p></div>
+
+    <div class="card"><div class="step">4. Morning Narration & Sync</div>
+      <p>Everyone wakes up. The Moderator reads a classical Tamil moral saying and shows the morning Sync QR. Every player scans it to learn who survived.</p></div>
+
+    <div class="card"><div class="step">5. Discuss, Nominate & Vote</div>
+      <p>Townspeople debate and nominate suspects. Each player casts a secret vote on their device, which renders a Ballot QR. The Moderator scans all Ballot QRs to tally the vote and announce the exiled player.</p></div>
+
+    <div class="card"><div class="step">6. Next Round & Moderator Rotation</div>
+      <p>When the round ends, the Moderator hands off to the next player. The rotation algorithm ensures fair role distribution.<br><br>
+      <span style="color:var(--outlaw)">⚠️ Warning: "New Game Night" wipes the entire session history. Only use it when starting a completely new party.</span></p></div>
+
+    <div class="card"><div class="step">Troubleshooting Scanner & Payload Fallback</div>
+      <p>• Turn screen brightness to max.<br>
+      • Hold phones 15–30 cm apart in landscape/portrait.<br>
+      • If camera is unavailable, tap "DEV: copy payload" under any QR and paste it into the target scanner.</p></div>
+
     <button class="btn gold" data-action="closeHelp">Back to the game</button>`;
+}
+
+// ---- Tamil Moral Wisdom (all 50 sayings, grouped by the game moment they appear in) ----
+const SAYING_GROUPS = [
+  { cat: 'LOBBY_WELCOME',      title: '🤝 The Lobby',          sub: 'gathering the players' },
+  { cat: 'DAY_START_PEACE',   title: '🌅 A Peaceful Morning',  sub: 'the night passed without loss' },
+  { cat: 'DAY_START_LOSS',    title: '🌫️ A Grim Morning',      sub: 'a neighbour was taken' },
+  { cat: 'NOMINATION_TENSION',title: '⚖️ Nomination',          sub: 'the town debates and accuses' },
+  { cat: 'EXECUTION_RESOLVED',title: '🔨 The Verdict',         sub: 'a player is voted out' },
+  { cat: 'GAME_OVER',         title: '🏁 Game Over',           sub: 'the round is decided' },
+];
+function sayingsScreen() {
+  const db = NarrationEngine.allByCategory();
+  const groups = SAYING_GROUPS.map(g => {
+    const items = (db[g.cat] || []).map(sy => `
+      <div class="saying">
+        <div class="saying-src">${esc(sy.source.toUpperCase())} · ${esc(NarrationEngine.poetFor(sy))}</div>
+        <div class="saying-ta">${sy.tamil}</div>
+        <div class="saying-tr">${esc(sy.transliteration)}</div>
+        <div class="saying-en">${esc(sy.translation)}</div>
+      </div>`).join('');
+    return `<div class="saying-group"><div class="saying-head">${g.title} <span class="dim">· ${esc(g.sub)}</span></div>${items}</div>`;
+  }).join('');
+  return `
+    <h2>Tamil Moral Wisdom</h2>
+    <p class="dim">50 sayings from Avvaiyar &amp; Bharathiyar, woven into the game's narration.</p>
+    ${groups}
+    <button class="btn gold" data-action="closeSayings">Back to the game</button>`;
 }
 
 // ---- Event delegation ------------------------------------------------------
@@ -528,13 +593,18 @@ document.addEventListener('click', (e) => {
   const name = t.dataset.name;
   const s = state.session;
   switch (a) {
-    case 'help': ui.showHelp = true; render(); break;
+    // The FABs toggle: tapping the same one again returns to the game. Opening one
+    // closes the other (the two overlays are mutually exclusive).
+    case 'help': ui.showHelp = !ui.showHelp; if (ui.showHelp) ui.showSayings = false; render(); break;
     case 'closeHelp': ui.showHelp = false; render(); break;
+    case 'sayings': ui.showSayings = !ui.showSayings; if (ui.showSayings) ui.showHelp = false; render(); break;
+    case 'closeSayings': ui.showSayings = false; render(); break;
     case 'createProfile': { const v = ($('#name')?.value || '').trim(); if (v) dispatch({ type: 'PROFILE_CREATED', name: v }); break; }
     case 'clearProfile': dispatch({ type: 'PROFILE_CLEARED' }); break;
     case 'createGame': dispatch({ type: 'SESSION_CREATED' }); break;
     case 'cancelGame': if (!s.roster || s.roster.filter(p => !p.isModerator).length === 0 || confirm('Cancel this game night? Joined players must rescan the real Moderator.')) dispatch({ type: 'SESSION_CANCELLED' }); break;
     case 'scanJoin': openScanner("Scan the Moderator's join QR", handleGenericDecode(['join'], p => dispatch({ type: 'JOIN_SCANNED', payload: p }))); break;
+    case 'restore': dispatch({ type: 'PLAYER_STATUS_RESTORED', name }); break;
     case 'scanAck': openScanner("Scan Player's joinAck QR", handleGenericDecode(['joinAck'], p => dispatch({ type: 'JOIN_ACK_SCANNED', payload: p }))); break;
     case 'scanRoles': openScanner("Scan Moderator's Roles QR", handleRolesScan); break;
     case 'scanSync': openScanner("Scan Moderator's Sync QR", handleGenericDecode(['sync'], p => { ui.ballotTarget = p.phase !== 'DAY_VOTE' ? null : ui.ballotTarget; dispatch({ type: 'STATE_SYNC_SCANNED', payload: p }); })); break;
