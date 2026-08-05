@@ -24,7 +24,7 @@ try {
 const ui = {
   ballotTarget: null,
   revealRole: false, peekBallot: false, revealRoster: false, showHandoff: false, showHelp: false, showSayings: false,
-  scanHandler: null, rolesCache: null,
+  scanHandler: null, rolesCache: null, cameraAvailable: null,
 };
 // Memo slots for random picks so they stay stable across re-renders (see narrationCard / suggested Moderator).
 let _suggestPick = { key: null, name: '' };
@@ -84,18 +84,18 @@ function qrBlock(text, size) {
   wrap.className = 'qrwrap';
   wrap.appendChild(qrCanvas(text, size));
   box.appendChild(wrap);
-  if (DEV) {
-    // Tab-to-tab testing without a camera: copy this payload, switch to another
-    // tab's scanner, and paste it. Mirrors the native app's DEV payload path.
+  if (DEV || ui.cameraAvailable === false) {
+    // Tab-to-tab testing or camera unavailable: copy this payload, switch to another
+    // tab's scanner, and paste it.
     const dp = document.createElement('div');
     dp.className = 'devpay';
     const btn = document.createElement('button');
     btn.className = 'link';
-    btn.textContent = 'DEV: copy payload';
+    btn.textContent = DEV ? 'DEV: copy payload' : 'Copy payload text';
     btn.style.marginTop = '4px';
     btn.addEventListener('click', async (e) => {
       e.stopPropagation();
-      try { await navigator.clipboard.writeText(text); toast('Payload copied — paste into another tab'); }
+      try { await navigator.clipboard.writeText(text); toast('Payload copied'); }
       catch { window.prompt('Copy this payload:', text); }
     });
     dp.appendChild(btn);
@@ -113,7 +113,15 @@ function openScanner(title, handler) {
   $('#scan-title').textContent = title;
   $('#scan-paste').value = '';
   $('#scanner').classList.add('on');
+  updatePasteVisibility();
   startCamera();
+}
+function updatePasteVisibility() {
+  const showPaste = DEV || ui.cameraAvailable === false;
+  const pasteBox = $('#scanner .paste');
+  if (pasteBox) {
+    pasteBox.style.display = showPaste ? 'flex' : 'none';
+  }
 }
 function closeScanner() {
   scanning = false;
@@ -127,10 +135,15 @@ async function startCamera() {
     stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
     video.srcObject = stream;
     await video.play();
+    ui.cameraAvailable = true;
+    updatePasteVisibility();
     scanning = true;
     requestAnimationFrame(scanTick);
   } catch (e) {
+    ui.cameraAvailable = false;
+    updatePasteVisibility();
     toast('Camera unavailable — paste the payload instead. (' + (e.name || 'error') + ')');
+    render();
   }
 }
 let _lastDecode = 0;
