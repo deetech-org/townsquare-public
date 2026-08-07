@@ -366,7 +366,9 @@ function renderModerator(s) {
     const names = roleHolders.map(p => p.name);
     const nightPicker = (label, actor, act, current, extra) => `
       <div class="pickerbox"><div class="lbl">${label}: ${current ? esc(current.target) + (extra || '') : 'None'}</div>
-        ${current ? '' : `<div class="picker">${names.map(n => `<button data-action="night" data-actor="${actor}" data-act="${act}" data-name="${esc(n)}">${esc(n)}</button>`).join('')}</div>`}
+        ${current
+          ? `<button class="link" data-action="clearNight" data-actor="${actor}" data-act="${act}">Change</button>`
+          : `<div class="picker">${names.map(n => `<button data-action="night" data-actor="${actor}" data-act="${act}" data-name="${esc(n)}">${esc(n)}</button>`).join('')}</div>`}
       </div>`;
     body += `<div class="card"><div class="step">Silent Night Console — ask everyone to close eyes, call roles in turn:</div>
       ${nightPicker('1. Outlaws (Kill)', 'OUTLAW', 'KILL', kill)}
@@ -629,6 +631,7 @@ document.addEventListener('click', (e) => {
     case 'toNight': dispatch({ type: 'PHASE_ADVANCED', to: 'NIGHT' }); break;
     case 'backToRoles': dispatch({ type: 'PHASE_ADVANCED', to: 'ROLE_ASSIGNMENT' }); break;
     case 'night': dispatch({ type: 'NIGHT_ACTION_LOGGED', actor: t.dataset.actor, action: t.dataset.act, target: name }); break;
+    case 'clearNight': dispatch({ type: 'NIGHT_ACTION_CLEARED', actor: t.dataset.actor, action: t.dataset.act }); break;
     case 'resolveNight': dispatch({ type: 'NIGHT_RESOLVED' }); break;
     case 'toNomination': dispatch({ type: 'PHASE_ADVANCED', to: 'DAY_NOMINATION' }); break;
     case 'toVote': dispatch({ type: 'PHASE_ADVANCED', to: 'DAY_VOTE' }); break;
