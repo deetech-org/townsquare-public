@@ -120,7 +120,7 @@ function updatePasteVisibility() {
   const showPaste = DEV || ui.cameraAvailable === false;
   const pasteBox = $('#scanner .paste');
   if (pasteBox) {
-    pasteBox.style.display = showPaste ? 'flex' : 'none';
+    pasteBox.style.display = showPaste ? 'block' : 'none';
   }
 }
 function closeScanner() {
