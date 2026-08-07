@@ -535,6 +535,13 @@ export function appReducer(state, action) {
       return { alert: null, session: { ...session, pendingActions: [...pending, { actor: action.actor, action: action.action, target: action.target }] } };
     }
 
+    case 'NIGHT_ACTION_CLEARED': {
+      // Moderator correction: drop a logged night action so its picker re-opens.
+      if (!session || session.deviceMode !== 'MODERATOR') return withAlert(state, "Night actions go to the Moderator's device.");
+      const pending = (session.pendingActions ?? []).filter(a => !(a.actor === action.actor && a.action === action.action));
+      return { alert: null, session: { ...session, pendingActions: pending } };
+    }
+
     case 'ROUND_STARTED': {
       if (!session || session.deviceMode !== 'MODERATOR' || !session.roster) return withAlert(state, 'Only the Moderator can start a round.');
       const holders = session.roster.filter(p => !p.isModerator && p.status === 'ACTIVE');
