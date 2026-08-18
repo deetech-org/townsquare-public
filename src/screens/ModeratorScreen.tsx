@@ -10,7 +10,7 @@ import { QRCodec } from '../services/QRCodec';
 import { scanRolesPayload } from '../services/rolesScan';
 import { colors } from '../theme';
 import { BRAND_MARK } from '../components/BrandMark';
-import { effectiveMinRoleHolders } from '../engine/RoleTable';
+import { MIN_ROLE_HOLDERS } from '../engine/RoleTable';
 import { pickNextModerator } from '../state/RotationFairness';
 
 export function ModeratorScreen() {
@@ -259,14 +259,16 @@ export function ModeratorScreen() {
           </View>
 
           <Pressable
-            style={[styles.primary, roleHolders.length < effectiveMinRoleHolders() && styles.buttonDisabled]}
-            disabled={roleHolders.length < effectiveMinRoleHolders()}
+            style={[styles.primary, roleHolders.length < MIN_ROLE_HOLDERS && styles.buttonDisabled]}
+            disabled={roleHolders.length < MIN_ROLE_HOLDERS}
             onPress={() => dispatch({ type: 'ROUND_STARTED' })}
           >
             <Text style={styles.primaryText}>Start Round</Text>
           </Pressable>
-          {__DEV__ && roleHolders.length < 6 && roleHolders.length >= 3 && (
-            <Text style={styles.dim}>DEV build: starting with {roleHolders.length} players (release minimum is 6).</Text>
+          {roleHolders.length >= MIN_ROLE_HOLDERS && roleHolders.length <= 5 && (
+            <Text style={styles.recommendationBadge}>
+              💡 Recommended: 7+ total people (1 Mod + 6 Players) for optimal balance.
+            </Text>
           )}
           <Pressable
             style={styles.danger}
@@ -318,7 +320,14 @@ export function ModeratorScreen() {
 
           {/* 1. Outlaw Kill Target */}
           <View style={styles.pickerBox}>
-            <Text style={styles.pickerLabel}>1. Outlaws (Kill): {outlawAction ? outlawAction.target : 'None'}</Text>
+            <View style={styles.actionRow}>
+              <Text style={styles.pickerLabel}>1. Outlaws (Kill): {outlawAction ? outlawAction.target : 'None'}</Text>
+              {outlawAction && (
+                <Pressable onPress={() => dispatch({ type: 'NIGHT_ACTION_CLEARED', action: 'KILL' })}>
+                  <Text style={styles.changeActionText}>Change</Text>
+                </Pressable>
+              )}
+            </View>
             {!outlawAction && (
               <TargetPicker
                 prompt="Select Outlaws' target:"
@@ -330,7 +339,14 @@ export function ModeratorScreen() {
 
           {/* 2. Doctor Save Target */}
           <View style={styles.pickerBox}>
-            <Text style={styles.pickerLabel}>2. Doctor (Save): {doctorAction ? doctorAction.target : 'None'}</Text>
+            <View style={styles.actionRow}>
+              <Text style={styles.pickerLabel}>2. Doctor (Save): {doctorAction ? doctorAction.target : 'None'}</Text>
+              {doctorAction && (
+                <Pressable onPress={() => dispatch({ type: 'NIGHT_ACTION_CLEARED', action: 'SAVE' })}>
+                  <Text style={styles.changeActionText}>Change</Text>
+                </Pressable>
+              )}
+            </View>
             {!doctorAction && (
               <TargetPicker
                 prompt="Select Doctor's target:"
@@ -342,9 +358,16 @@ export function ModeratorScreen() {
 
           {/* 3. Detective Inspect Target */}
           <View style={styles.pickerBox}>
-            <Text style={styles.pickerLabel}>
-              3. Detective (Inspect): {detectiveAction ? `${detectiveAction.target} → ${detectiveResult}` : 'None'}
-            </Text>
+            <View style={styles.actionRow}>
+              <Text style={styles.pickerLabel}>
+                3. Detective (Inspect): {detectiveAction ? `${detectiveAction.target} → ${detectiveResult}` : 'None'}
+              </Text>
+              {detectiveAction && (
+                <Pressable onPress={() => dispatch({ type: 'NIGHT_ACTION_CLEARED', action: 'INVESTIGATE' })}>
+                  <Text style={styles.changeActionText}>Change</Text>
+                </Pressable>
+              )}
+            </View>
             {!detectiveAction && (
               <TargetPicker
                 prompt="Select Detective's target:"
@@ -506,9 +529,19 @@ export function ModeratorScreen() {
           {/* Roles are secret: players stand right here to scan the sync QR, so the
               resting state must leak nothing. Statuses are public once announced. */}
           {roster.map(p => (
-            <Text key={p.name} style={[styles.rosterRow, p.status !== 'ACTIVE' && styles.deceasedRow]}>
-              {p.name}{revealRoles && !p.isModerator ? ` — ${p.role}` : ''} [{p.status}]
-            </Text>
+            <View key={p.name} style={styles.rosterStatusLine}>
+              <Text style={[styles.rosterRow, p.status !== 'ACTIVE' && styles.deceasedRow]}>
+                {p.name}{revealRoles && !p.isModerator ? ` — ${p.role}` : ''} [{p.status}]
+              </Text>
+              {(p.status === 'DECEASED' || p.status === 'ELIMINATED') && (
+                <Pressable
+                  style={styles.restoreButton}
+                  onPress={() => dispatch({ type: 'PLAYER_STATUS_RESTORED', name: p.name })}
+                >
+                  <Text style={styles.restoreButtonText}>Restore / Undo</Text>
+                </Pressable>
+              )}
+            </View>
           ))}
           <Pressable
             onPressIn={() => setRevealRoles(true)}
@@ -610,4 +643,10 @@ const styles = StyleSheet.create({
   buttonDisabled: { opacity: 0.3 },
   button: { backgroundColor: colors.cardBackground, borderColor: colors.border, borderWidth: 1, borderRadius: 10, padding: 14, alignItems: 'center', marginBottom: 16 },
   buttonText: { color: colors.text, fontWeight: 'bold' },
+  recommendationBadge: { color: colors.brandGold, fontSize: 13, textAlign: 'center', marginTop: 10, lineHeight: 18 },
+  actionRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  changeActionText: { color: colors.brandGold, fontSize: 13, fontWeight: 'bold', textDecorationLine: 'underline', padding: 4 },
+  rosterStatusLine: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginVertical: 2 },
+  restoreButton: { backgroundColor: 'rgba(218, 165, 32, 0.15)', borderColor: colors.brandGold, borderWidth: 1, borderRadius: 6, paddingVertical: 3, paddingHorizontal: 8 },
+  restoreButtonText: { color: colors.brandGold, fontSize: 12, fontWeight: 'bold' },
 });

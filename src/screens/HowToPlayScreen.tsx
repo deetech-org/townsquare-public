@@ -35,7 +35,7 @@ export function HowToPlayScreen({ onClose }: Props) {
         <S title="Objective">
           <P>• Outlaws win when they equal or outnumber the remaining Townspeople.</P>
           <P>• Townspeople (Detective, Doctor, Town) win by voting out every Outlaw.</P>
-          <P>• Room size: 6-16 players plus one Moderator (7-17 people). The Moderator holds no role and rotates every round, so everyone gets to play.</P>
+          <P>• Room size: 3-16 players plus one Moderator (4-17 people; 7+ recommended). The Moderator holds no role and rotates every round, so everyone gets to play.</P>
         </S>
 
         <S title="1. Join the lobby">

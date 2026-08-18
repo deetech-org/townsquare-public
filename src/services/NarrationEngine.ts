@@ -399,6 +399,11 @@ export class NarrationEngine {
     return POET_BY_SOURCE[saying.source];
   }
 
+  /** All 50 sayings grouped by narration category — powers the "Tamil Moral Wisdom" screen. */
+  public static allByCategory(): Record<NarrationCategory, TamilSaying[]> {
+    return this.database;
+  }
+
   /** The category-specific narrator line, with the victim/suspect name woven in. */
   public static scriptFor(category: NarrationCategory, victimName?: string): string {
     switch (category) {

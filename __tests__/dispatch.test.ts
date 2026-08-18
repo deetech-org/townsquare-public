@@ -313,9 +313,9 @@ describe('lobby / round lifecycle', () => {
     expect(next.session?.sessionId).toBe('abc12345');
   });
 
-  it('ROUND_STARTED refuses below the dev minimum (2 role-holders)', () => {
+  it('ROUND_STARTED refuses below the minimum (2 role-holders)', () => {
     const next = appReducer(st(moderatorSession(['A', 'B'])), { type: 'ROUND_STARTED' });
-    expect(next.alert).toContain('Need 6-16');
+    expect(next.alert).toContain('Need 3-16');
     expect(next.session?.phase).toBe('LOBBY');
   });
 
@@ -377,6 +377,37 @@ describe('lobby / round lifecycle', () => {
     const s0 = st(moderatorSession(['Alice'], { phase: 'DAY_VOTE' }));
     const s1 = appReducer(s0, { type: 'PLAYER_ELIMINATED', name: 'Alice' });
     expect(s1.session?.roster?.find(p => p.name === 'Alice')?.status).toBe('ELIMINATED');
+  });
+
+  it('PLAYER_STATUS_RESTORED restores DECEASED/ELIMINATED player to ACTIVE and clears lastElimination', () => {
+    const roster = [
+      profile('Mod', { isModerator: true }),
+      profile('Alice', { role: 'OUTLAW', status: 'ELIMINATED' }),
+      profile('Bob', { role: 'TOWN', status: 'DECEASED' }),
+    ];
+    const s0 = st(moderatorSession([], { roster, phase: 'DAY_VOTE', lastElimination: 'Alice' }));
+    const s1 = appReducer(s0, { type: 'PLAYER_STATUS_RESTORED', name: 'Alice' });
+    expect(s1.session?.roster?.find(p => p.name === 'Alice')?.status).toBe('ACTIVE');
+    expect(s1.session?.lastElimination).toBeUndefined();
+
+    const s2 = appReducer(s1, { type: 'PLAYER_STATUS_RESTORED', name: 'Bob' });
+    expect(s2.session?.roster?.find(p => p.name === 'Bob')?.status).toBe('ACTIVE');
+  });
+
+  it('NIGHT_ACTION_CLEARED and NIGHT_ACTION_LOGGED allow re-picking night targets', () => {
+    const s0 = st(moderatorSession(['Alice', 'Bob'], { phase: 'NIGHT' }));
+    const s1 = appReducer(s0, { type: 'NIGHT_ACTION_LOGGED', actor: 'OUTLAW', action: 'KILL', target: 'Alice' });
+    expect(s1.session?.pendingActions).toHaveLength(1);
+    expect(s1.session?.pendingActions?.[0].target).toBe('Alice');
+
+    // Overwriting by re-logging
+    const s2 = appReducer(s1, { type: 'NIGHT_ACTION_LOGGED', actor: 'OUTLAW', action: 'KILL', target: 'Bob' });
+    expect(s2.session?.pendingActions).toHaveLength(1);
+    expect(s2.session?.pendingActions?.[0].target).toBe('Bob');
+
+    // Clearing
+    const s3 = appReducer(s2, { type: 'NIGHT_ACTION_CLEARED', action: 'KILL' });
+    expect(s3.session?.pendingActions).toHaveLength(0);
   });
 
   it('ROUND_ENDED bumps the rotation tally for every participant', () => {

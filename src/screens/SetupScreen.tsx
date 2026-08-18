@@ -25,7 +25,7 @@ export function SetupScreen() {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <BrandMark size={88} style={styles.heroMark} />
+      <BrandMark size={264} style={styles.heroMark} />
       <Text style={styles.title}>Townsquare</Text>
       <Text style={styles.subtitle}>Enter your name — it stays on this phone and is only shared with your game's Moderator.</Text>
 

@@ -2,7 +2,13 @@
   "expo": {
     "name": "Townsquare",
     "slug": "townsquare",
-    "version": "1.0.0",
+    "version": "1.1.0",
+    "updates": {
+      "url": "https://u.expo.dev/a7a9ee1a-b17f-4d47-ac95-85f27d92a453"
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
     "orientation": "portrait",
     "icon": "./townsquare_icon.png",
     "userInterfaceStyle": "dark",

@@ -35,10 +35,12 @@ export type AppAction =
   | { type: 'BALLOT_SCANNED'; payload: BallotPayload }
   | { type: 'HANDOFF_SCANNED'; payload: ModeratorHandoffPayload }
   | { type: 'NIGHT_ACTION_LOGGED'; actor: string; action: 'KILL' | 'SAVE' | 'INVESTIGATE'; target: string }
+  | { type: 'NIGHT_ACTION_CLEARED'; action: 'KILL' | 'SAVE' | 'INVESTIGATE' }
   | { type: 'ROUND_STARTED' }
   | { type: 'PHASE_ADVANCED'; to: RoundPhase }
   | { type: 'NIGHT_RESOLVED' }
   | { type: 'PLAYER_ELIMINATED'; name: string }
+  | { type: 'PLAYER_STATUS_RESTORED'; name: string }
   | { type: 'PLAYER_REMOVED'; name: string }
   | { type: 'ROUND_ENDED' }
   | { type: 'ALERT_CLEARED' }
@@ -342,16 +344,26 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       if (!session || session.deviceMode !== 'MODERATOR') {
         return withAlert(state, 'Night actions go to the Moderator\'s device.');
       }
-      const pending = session.pendingActions ?? [];
-      const already = pending.some(a => a.actor === action.actor && a.action === action.action);
-      if (already) {
-        return withAlert(state, `${action.actor} already logged a ${action.action} action this night.`);
-      }
+      const filtered = (session.pendingActions ?? []).filter(a => a.action !== action.action);
       return {
         alert: null,
         session: {
           ...session,
-          pendingActions: [...pending, { actor: action.actor, action: action.action, target: action.target }],
+          pendingActions: [...filtered, { actor: action.actor, action: action.action, target: action.target }],
+        },
+      };
+    }
+
+    case 'NIGHT_ACTION_CLEARED': {
+      if (!session || session.deviceMode !== 'MODERATOR') {
+        return withAlert(state, 'Night actions go to the Moderator\'s device.');
+      }
+      const filtered = (session.pendingActions ?? []).filter(a => a.action !== action.action);
+      return {
+        alert: null,
+        session: {
+          ...session,
+          pendingActions: filtered,
         },
       };
     }
@@ -416,6 +428,22 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         p.name === action.name ? { ...p, status: 'ELIMINATED' as const } : p
       );
       return { alert: null, session: { ...session, roster, lastElimination: action.name } };
+    }
+
+    case 'PLAYER_STATUS_RESTORED': {
+      if (!session || session.deviceMode !== 'MODERATOR' || !session.roster) {
+        return withAlert(state, 'Only the Moderator can restore player status.');
+      }
+      const target = session.roster.find(p => p.name === action.name);
+      if (!target) return withAlert(state, `${action.name} is not in the roster.`);
+      if (target.status !== 'DECEASED' && target.status !== 'ELIMINATED') {
+        return state; // already active/waiting
+      }
+      const roster = session.roster.map(p =>
+        p.name === action.name ? { ...p, status: 'ACTIVE' as const } : p
+      );
+      const lastElimination = session.lastElimination === action.name ? undefined : session.lastElimination;
+      return { alert: null, session: { ...session, roster, lastElimination } };
     }
 
     case 'PLAYER_REMOVED': {

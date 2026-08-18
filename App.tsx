@@ -8,6 +8,7 @@ import { SetupScreen } from './src/screens/SetupScreen';
 import { PlayerScreen } from './src/screens/PlayerScreen';
 import { ModeratorScreen } from './src/screens/ModeratorScreen';
 import { HowToPlayScreen } from './src/screens/HowToPlayScreen';
+import { SayingsScreen } from './src/screens/SayingsScreen';
 import { QRScannerView } from './src/components/QRScannerView';
 import { BrandMark } from './src/components/BrandMark';
 import { colors } from './src/theme';
@@ -18,6 +19,7 @@ function AppShell() {
   const { state, dispatch, hydrated } = useSession();
   const [scanMode, setScanMode] = useState<ScanMode>('none');
   const [showHelp, setShowHelp] = useState(false);
+  const [showSayings, setShowSayings] = useState(false);
 
   useEffect(() => {
     if (state.alert) {
@@ -48,10 +50,6 @@ function AppShell() {
     );
   }
 
-  if (showHelp) {
-    return <HowToPlayScreen onClose={() => setShowHelp(false)} />;
-  }
-
   if (scanMode !== 'none') {
     return (
       <QRScannerView
@@ -62,26 +60,43 @@ function AppShell() {
     );
   }
 
-  const screen = !state.session
-    ? <SetupScreen />
-    : state.session.deviceMode === 'MODERATOR'
-      ? <ModeratorScreen />
-      : (
-        <PlayerScreen
-          onScanJoin={() => setScanMode('join')}
-          onScanHandoff={() => setScanMode('handoff')}
-        />
-      );
+  const screenContent = showHelp
+    ? <HowToPlayScreen onClose={() => setShowHelp(false)} />
+    : showSayings
+      ? <SayingsScreen onClose={() => setShowSayings(false)} />
+      : !state.session
+        ? <SetupScreen />
+        : state.session.deviceMode === 'MODERATOR'
+          ? <ModeratorScreen />
+          : (
+            <PlayerScreen
+              onScanJoin={() => setScanMode('join')}
+              onScanHandoff={() => setScanMode('handoff')}
+            />
+          );
 
   return (
     <View style={styles.shell}>
-      {screen}
+      {screenContent}
       <Pressable
-        style={styles.helpFab}
-        onPress={() => setShowHelp(true)}
+        style={[styles.sayingsFab, showSayings && styles.fabActive]}
+        onPress={() => {
+          setShowHelp(false);
+          setShowSayings(s => !s);
+        }}
+        accessibilityLabel="Tamil moral sayings"
+      >
+        <Text style={[styles.fabText, showSayings && styles.fabTextActive]}>ழ்</Text>
+      </Pressable>
+      <Pressable
+        style={[styles.helpFab, showHelp && styles.fabActive]}
+        onPress={() => {
+          setShowSayings(false);
+          setShowHelp(h => !h);
+        }}
         accessibilityLabel="How to play"
       >
-        <Text style={styles.helpFabText}>?</Text>
+        <Text style={[styles.fabText, showHelp && styles.fabTextActive]}>?</Text>
       </Pressable>
     </View>
   );
@@ -108,6 +123,19 @@ const styles = StyleSheet.create({
   splash: { flex: 1, backgroundColor: colors.primaryDark, alignItems: 'center', justifyContent: 'center' },
   splashText: { color: colors.brandGold, fontSize: 30, fontWeight: 'bold', letterSpacing: 1 },
   shell: { flex: 1, backgroundColor: colors.primaryDark },
+  sayingsFab: {
+    position: 'absolute',
+    bottom: 24,
+    left: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.cardBackground,
+    borderColor: colors.brandGold,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   helpFab: {
     position: 'absolute',
     bottom: 24,
@@ -120,7 +148,10 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
-    // Deliberately absent from the scanner views: nothing should overlap the viewfinder.
   },
-  helpFabText: { color: colors.brandGold, fontSize: 20, fontWeight: 'bold' },
+  fabActive: {
+    backgroundColor: colors.brandGold,
+  },
+  fabText: { color: colors.brandGold, fontSize: 20, fontWeight: 'bold' },
+  fabTextActive: { color: colors.primaryDark },
 });
